@@ -1,0 +1,41 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Environment variables & secrets (Never commit secrets!)
+.env
+.env.local
+*.pem
+*.key
+.env.example
+
+# Local Data and Logs
+logs/
+*.log
+data/*
+!data/.gitkeep
+
+# Vector Database (Local ChromaDB)
+chroma_db/
+.chroma/
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,0 +1,10 @@
+[
+    {
+        "role": "user",
+        "content": [
+            {
+                "text": "Explain what an insurance policy is in one sentence."
+            }
+        ]
+    }
+]
