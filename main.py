@@ -26,6 +26,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Database could not be initialized automatically. Please check your MySQL settings.")
 
+    # Initialize Snowflake analytical tables if configured
+    try:
+        from app.snowflake.connection import init_snowflake_tables
+        init_snowflake_tables()
+    except Exception as e:
+        logger.warning("Snowflake analytical tables could not be initialized: %s", str(e))
+
     logger.info("Swagger docs available at http://%s:%s/docs", settings.host, settings.port)
     yield
     logger.info("Shutting down %s...", settings.app_name)
