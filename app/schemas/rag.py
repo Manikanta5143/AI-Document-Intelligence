@@ -17,6 +17,12 @@ class RAGQuestionRequest(BaseModel):
         le=20,
         description="Optional override for the number of relevant chunks to retrieve (defaults to RAG_TOP_K config, 5)",
     )
+    temperature: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Optional override for LLM generation temperature (0.0 to 1.0, defaults to config)",
+    )
 
     model_config = {
         "json_schema_extra": {

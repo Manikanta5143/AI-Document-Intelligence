@@ -213,4 +213,5 @@ def ask_document_question(
         document_id=document_id,
         question=payload.question,
         top_k=payload.top_k,
+        temperature=payload.temperature,
     )

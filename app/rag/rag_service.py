@@ -46,6 +46,7 @@ class RAGService:
         document_id: int,
         question: str,
         top_k: Optional[int] = None,
+        temperature: Optional[float] = None,
     ) -> RAGAnswerResponse:
         """Execute RAG question-answering workflow on an insurance document.
 
@@ -53,6 +54,7 @@ class RAGService:
             document_id: Database ID of the target document.
             question: User's insurance question.
             top_k: Optional override for number of chunks to retrieve (defaults to config).
+            temperature: Optional override for generation temperature (defaults to config).
 
         Raises:
             HTTPException: 404 if document is not found, 400 for empty questions, 500 for failures.
@@ -143,10 +145,13 @@ class RAGService:
                 )
 
                 # 4. Invoke Amazon Nova Lite
+                gen_temperature = (
+                    self.settings.bedrock_temperature if temperature is None else temperature
+                )
                 answer = self.llm_service.generate_text(
                     prompt=user_prompt,
                     system_prompt=system_instruction,
-                    temperature=0.0,  # Zero-temperature for deterministic grounded answers
+                    temperature=gen_temperature,
                 )
 
             # 5. Persist Query and Answer in MySQL

@@ -1,0 +1,29 @@
+{
+  "status": "success",
+  "timestamp_utc": "2026-10-14T10:39:35.934584+00:00",
+  "smoke_only": true,
+  "document": "synthetic_insurance_policy_1_page.pdf",
+  "document_sha256": "9313c17433b729b5c7affd2bcd792a5f785c8872bc9e336634023159099b7935",
+  "question_id": "Q01",
+  "question": "What is the policy number?",
+  "temperature": 0.0,
+  "top_k": 3,
+  "model_id": "global.amazon.nova-2-lite-v1:0",
+  "region": "ap-south-1",
+  "collection": "quota_conscious_rag_eval_smoke",
+  "chunking": {
+    "size": 1000,
+    "overlap": 200
+  },
+  "retrieved_chunk_ids": [
+    0,
+    1,
+    2
+  ],
+  "answer": "The policy number is **CSM-HO-2048-TEST**, as stated on **Page 1** of the synthetic insurance policy document.",
+  "input_tokens": 786,
+  "output_tokens": 33,
+  "latency_ms": 807,
+  "retry_count": 0,
+  "estimated_generation_cost_usd": 0.0003183
+}

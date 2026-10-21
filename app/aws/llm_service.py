@@ -21,18 +21,30 @@ class BaseLLMService(ABC):
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
     ) -> str:
-        """Generate text using a language model.
-
-        Args:
-            prompt: User prompt containing document text or query instructions.
-            system_prompt: Optional system instruction for grounding and tone.
-            max_tokens: Maximum tokens for generation.
-            temperature: Sampling temperature for randomness.
-
-        Returns:
-            str: Generated text response.
-        """
+        """Generate text using a language model."""
         pass
+
+    def generate_text_with_metadata(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+    ) -> dict:
+        """Generate text and return dict with text, input_tokens, output_tokens, latency_ms."""
+        text = self.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return {
+            "text": text,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "latency_ms": 0,
+        }
 
 
 class BedrockLLMService(BaseLLMService):
@@ -86,28 +98,14 @@ class BedrockLLMService(BaseLLMService):
             logger.error("Failed to initialize boto3 Bedrock client: %s", str(e))
             raise RuntimeError(f"Could not initialize Bedrock client: {str(e)}") from e
 
-    def generate_text(
+    def generate_text_with_metadata(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-    ) -> str:
-        """Execute text generation against Amazon Nova Lite via the Bedrock Converse API.
-
-        Args:
-            prompt: Main prompt content.
-            system_prompt: Optional behavioral and grounding system prompt.
-            max_tokens: Maximum tokens to generate (defaults to settings.bedrock_max_tokens).
-            temperature: Sampling temperature (defaults to settings.bedrock_temperature).
-
-        Raises:
-            ValueError: If prompt is empty.
-            RuntimeError: If Bedrock invocation fails.
-
-        Returns:
-            str: Generated completion from Amazon Nova Lite.
-        """
+    ) -> dict:
+        """Execute text generation against Amazon Nova Lite returning text, usage, and latency metadata."""
         if not prompt or not prompt.strip():
             raise ValueError("Prompt cannot be empty for text generation.")
 
@@ -148,8 +146,20 @@ class BedrockLLMService(BaseLLMService):
                 raise ValueError("Received empty content array in Bedrock Converse response.")
 
             completion = content_list[0].get("text", "").strip()
+            usage = response.get("usage", {})
+            metrics = response.get("metrics", {})
+            input_tokens = usage.get("inputTokens", 0)
+            output_tokens = usage.get("outputTokens", 0)
+            latency_ms = metrics.get("latencyMs", 0)
+
             logger.info("Bedrock LLM response generated successfully (%d characters).", len(completion))
-            return completion
+            return {
+                "text": completion,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": usage.get("totalTokens", input_tokens + output_tokens),
+                "latency_ms": latency_ms,
+            }
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
@@ -159,6 +169,22 @@ class BedrockLLMService(BaseLLMService):
         except BotoCoreError as e:
             logger.error("BotoCoreError during Bedrock communication: %s", str(e))
             raise RuntimeError(f"Bedrock communication error: {str(e)}") from e
+
+    def generate_text(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+    ) -> str:
+        """Execute text generation against Amazon Nova Lite via Bedrock Converse API."""
+        result = self.generate_text_with_metadata(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return result["text"]
 
 
 class MockLLMService(BaseLLMService):
