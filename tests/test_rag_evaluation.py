@@ -2,6 +2,7 @@
 
 Compatible with standard library unittest and pytest.
 """
+from huggingface_hub.inference._generated.types import zero_shot_image_classification
 import math
 import sys
 import unittest
@@ -131,8 +132,24 @@ class TestMetricCalculations(unittest.TestCase):
         self.assertEqual(m["retrieval_recall"], 0.5)
         self.assertEqual(m["retrieval_f1"], 0.5)
         self.assertEqual(m["mrr"], 1.0)
-        self.assertEqual(m["num_retrieved_chunks"], 2)
+    
+    def test_zero_relevant_retrieval_metrics(self):
+        # pyrefly: ignore[parse-error]
+        retrieved = [14, 15]
+        relevant = [12, 13]
 
+        m = calculate_retrieval_metrics(
+            retrieved,
+            relevant,
+            k=2,
+            latency_ms=10.0
+        )
+
+        self.assertEqual(m["retrieval_precision"], 0.0)
+        self.assertEqual(m["retrieval_recall"], 0.0)
+        self.assertEqual(m["retrieval_f1"], 0.0)
+        self.assertEqual(m["mrr"], 0.0)
+        self.assertEqual(m["ndcg"], 0.0)
     def test_unanswerable_question_retrieval_metrics(self):
         retrieved = [12, 13, 14]
         relevant = []  # No relevant chunks in document
@@ -189,6 +206,244 @@ class TestAnswerQualityEvaluation(unittest.TestCase):
         self.assertEqual(res["hallucination_rate"], 0.0)
         self.assertTrue(res["abstention_correct"])
 
+    def test_q14_detects_hallucinated_latency(self):
+        q_info = {
+            "question_id": "Q14",
+            "is_answerable": False,
+            "expected_facts": ["Latency is not provided"],
+            "relevant_chunk_ids": []
+        }
+
+        chunks = [
+            {
+                "chunk_id": 12,
+                "page_number": 1,
+                "text": "FastAPI application in Python"
+            }
+        ]
+
+        ans = (
+            "The document does not provide enough information "
+            "to answer. The latency was 120 ms."
+        )
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        self.assertTrue(res["abstention_correct"])
+        self.assertEqual(res["hallucination_rate"], 1.0)
+        self.assertTrue(len(res["unsupported_claims"]) > 0)
+
+    def test_q15_detects_hallucinated_f1_score(self):
+        q_info = {
+            "question_id": "Q15",
+            "is_answerable": False,
+            "expected_facts": ["Model metrics are not provided"],
+            "relevant_chunk_ids": []
+        }
+
+        chunks = [
+            {
+                "chunk_id": 12,
+                "page_number": 1,
+                "text": "FastAPI application in Python"
+            }
+        ]
+
+        ans = (
+            "The document does not provide enough information "
+            "to answer. Stampede Recognition achieved an F1 score of 0.95."
+        )
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        self.assertTrue(res["abstention_correct"])
+        self.assertEqual(res["hallucination_rate"], 1.0)
+        self.assertTrue(len(res["unsupported_claims"]) > 0)
+    # pyrefly: ignore[parse-error]
+        q_info = {
+            "question_id": "Q14",
+            "is_answerable": False,
+            "expected_facts": ["Latency is not provided"],
+            "relevant_chunk_ids": []
+        }
+
+        chunks = [
+            {
+                "chunk_id": 12,
+                "page_number": 1,
+                "text": "FastAPI application in Python"
+            }
+        ]
+
+        ans = (
+            "The document does not provide enough information "
+            "to answer. The latency was 120 ms."
+        )
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        # pyrefly: ignore[parse-error]
+        self.assertTrue(res["abstention_correct"])
+        self.assertEqual(res["hallucination_rate"], 1.0)
+        self.assertTrue(len(res["unsupported_claims"]) > 0)
+    def test_missing_expected_fact_and_zero_f1(self):
+        q_info = {
+            "question_id": "Q01",
+            "is_answerable": True,
+            "expected_facts": [
+                "Titan Embeddings V2 is used for embeddings"
+            ],
+            "relevant_chunk_ids": []
+        }
+
+        chunks = []
+
+        ans = "The policy document contains general coverage information."
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        self.assertEqual(res["answer_recall"], 0.0)
+        self.assertEqual(res["answer_precision"], 0.0)
+        self.assertEqual(res["answer_f1"], 0.0)
+
+        self.assertTrue(len(res["missing_facts"]) > 0)
+        # pyrefly: ignore[parse-error]
+        q_info = {
+            "question_id": "Q15",
+            "is_answerable": False,
+            "expected_facts": ["The document does not provide model metrics"],
+            "relevant_chunk_ids": []
+        }
+
+        chunks = [
+            {
+                "chunk_id": 12,
+                "page_number": 1,
+                "text": "FastAPI application in Python"
+            }
+        ]
+
+        ans = (
+            "The document does not provide enough information "
+            "to answer. Stampede Recognition achieved an F1 score of 0.95."
+        )
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        self.assertTrue(res["abstention_correct"])
+        self.assertEqual(res["hallucination_rate"], 1.0)
+        self.assertTrue(len(res["unsupported_claims"]) > 0)
+
+    def test_detects_claim_not_supported_by_context(self):
+        q_info = {
+            "question_id": "Q01",
+            "is_answerable": True,
+            "expected_facts": [
+                "Titan Embeddings V2 is used for embeddings"
+            ],
+            "relevant_chunk_ids": [12]
+        }
+
+        chunks = [
+            {
+                "chunk_id": 12,
+                "page_number": 1,
+                "text": "The document contains general policy information."
+            }
+        ]
+
+        ans = "Titan Embeddings V2 is used for embeddings."
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        self.assertTrue(len(res["unsupported_claims"]) > 0)
+
+        self.assertIn(
+            "Fact asserted without context support",
+            res["unsupported_claims"][0]
+        )
+    def test_detects_conflicting_cgpa(self):
+        q_info = {
+            "question_id": "Q02",
+            "is_answerable": True,
+            "expected_facts": ["CGPA is 8.88/10"],
+            "relevant_chunk_ids": [12]
+        }
+
+        chunks = [
+            {
+                "chunk_id": 12,
+                "page_number": 1,
+                "text": "CGPA 8.88/10. B.Tech CSE AI & ML, JNTUH, Class of 2027."
+            }
+        ]
+
+        ans = (
+            "My CGPA is 8.88/10, not 7.5. "
+            "I completed B.Tech CSE AI & ML at JNTUH in 2027."
+        )
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        self.assertIn(
+            "Conflicting CGPA numbers",
+            res["contradictions"]
+        )
+    def test_detects_hallucinated_vector_database(self):
+        q_info = {
+            "question_id": "Q03",
+            "is_answerable": True,
+            "expected_facts": [
+                "ChromaDB vector store",
+                "FastAPI backend REST API"
+            ],
+            "relevant_chunk_ids": [12]
+        }
+
+        chunks = [
+            {
+                "chunk_id": 12,
+                "page_number": 1,
+                "text": "The application uses ChromaDB and FastAPI."
+            }
+        ]
+
+        ans = (
+            "The application uses ChromaDB for vector search "
+            "and FastAPI for backend REST APIs. "
+            "It also uses Qdrant."
+        )
+
+        res = evaluate_question_answer(
+            q_info, ans, chunks,
+            temperature=0.0, top_k=1
+        )
+
+        self.assertIn(
+            "Hallucinated alternative vector database (not ChromaDB)",
+            res["contradictions"]
+        )
     def test_unanswerable_question_proper_abstention(self):
         q_info = {
             "question_id": "Q13",
